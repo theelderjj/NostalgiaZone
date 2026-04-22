@@ -1,56 +1,42 @@
 ```
-# Go-specific ignores
-*.mod
-*.sum
-vendor/
-
 # Dependencies
 node_modules/
+vendor/
+ glide/
+ Godeps/
 
-# Compiled and build artifacts
-*.o
-*.obj
-*.a
+# Build artifacts
+bin/
+pkg/
 *.so
-*.dll
 *.exe
-dist/
-build/
-target/
+*.dll
+*.dylib
 
-# Python-related (if applicable)
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.venv/
-venv/
+# Logs
+*.log
+
+# Environment
 .env
 .env.local
-*.env.*
+.env.*
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
-
-# Editors and IDEs
+# Editors
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# System files
+# OS
 .DS_Store
 Thumbs.db
 
-# Coverage and testing
+# Coverage
 coverage/
 htmlcov/
 .coverage
-.mypy_cache/
-.pytest_cache/
 
-# Original rules preserved
+# Temp files
+*.tmp
+*.temp
 ```

@@ -166,6 +166,20 @@ func (s *Service) CleanupExpiredSessions() {
 
 // generateToken creates a random session token
 func generateToken() (string, error) {
+
+// HashPassword hashes a password using bcrypt
+// Exported for testing purposes
+func HashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return string(hash), err
+}
+
+// CheckPasswordHash compares a password with its hash
+// Exported for testing purposes
+func CheckPasswordHash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
+}
 	bytes := make([]byte, 32)
 	if _, err := rand.Read(bytes); err != nil {
 		return "", err
