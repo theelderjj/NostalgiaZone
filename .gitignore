@@ -1,27 +1,33 @@
 ```
 # Dependencies
 node_modules/
-vendor/
- glide/
- Godeps/
 
 # Build artifacts
-bin/
-pkg/
-*.so
-*.exe
-*.dll
-*.dylib
+dist/
+build/
+target/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.ENV
+.env
 
 # Logs
 *.log
 
-# Environment
-.env
-.env.local
-.env.*
+# Coverage
+.coverage
+coverage/
+htmlcov/
 
-# Editors
+# IDE
 .vscode/
 .idea/
 *.swp
@@ -31,12 +37,13 @@ pkg/
 .DS_Store
 Thumbs.db
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# Temp files
-*.tmp
-*.temp
+# Compressed
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
 ```
