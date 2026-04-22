@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+pkg/
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+coverage/
+
+# Logs
+*.log
+logs/
+
+# Editor directories and files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing
+test-results/
+playwright-report/
+
+# WASM and emulator files (large binaries)
+*.wasm
+public/emulator/cores/
+!public/emulator/.gitkeep
+
+# TypeScript cache
+*.tsbuildinfo
