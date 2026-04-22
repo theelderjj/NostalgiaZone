@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"modernc.org/sqlite"
+	_ "github.com/mattn/go-sqlite3"
 
 	"netplay-platform/backend/internal/auth"
 	"netplay-platform/backend/internal/config"
@@ -165,5 +165,5 @@ func getSession(r *http.Request) *auth.Session {
 }
 
 // Handler functions are defined in handlers.go
-// Suppress unused import warning
-var _ = sqlite.Driver{}
+// Suppress unused import warning for sqlite3 driver
+var _ = "github.com/mattn/go-sqlite3"
