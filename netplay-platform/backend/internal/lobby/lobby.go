@@ -371,3 +371,123 @@ func (m *Manager) GetPlayerCount(lobbyID string) (int, error) {
 
 	return len(info.Players), nil
 }
+
+// LeaveLobbyByUsername removes a player from a lobby by username
+func (m *Manager) LeaveLobbyByUsername(lobbyID string, username string) error {
+	m.mu.Lock()
+	info, exists := m.lobbies[lobbyID]
+	if !exists {
+		m.mu.Unlock()
+		return ErrLobbyNotFound
+	}
+	
+	// Find host by username for comparison
+	var hostUsername string
+	for _, p := range info.Players {
+		if p.PlayerNum == 1 {
+			hostUsername = p.Username
+			break
+		}
+	}
+	isHost := hostUsername == username
+	m.mu.Unlock()
+
+	info.mu.Lock()
+	defer info.mu.Unlock()
+
+	// Find player by username
+	var userID int64
+	found := false
+	for uid, player := range info.Players {
+		if player.Username == username {
+			userID = uid
+			found = true
+			break
+		}
+	}
+	
+	if !found {
+		return ErrPlayerNotInLobby
+	}
+
+	// Remove player
+	delete(info.Players, userID)
+	info.Lobby.PlayerCount = len(info.Players)
+
+	// If host left, close the lobby
+	if isHost {
+		info.Lobby.Status = string(StateClosed)
+		_ = m.db.EndLobby(lobbyID)
+		
+		// Clean up from memory after a delay
+		go func() {
+			time.Sleep(5 * time.Minute)
+			m.mu.Lock()
+			delete(m.lobbies, lobbyID)
+			m.mu.Unlock()
+		}()
+		
+		return nil
+	}
+
+	// Remove from database
+	err := m.db.RemovePlayerFromLobby(lobbyID, userID)
+	if err != nil {
+		return err
+	}
+
+	// If lobby is now empty and not started, close it
+	if len(info.Players) == 0 && info.Lobby.Status == string(StateWaiting) {
+		info.Lobby.Status = string(StateClosed)
+		_ = m.db.EndLobby(lobbyID)
+	}
+
+	return nil
+}
+
+// SetPlayerReadyByUsername sets a player's ready status by username
+func (m *Manager) SetPlayerReadyByUsername(lobbyID string, username string, ready bool) error {
+	info, err := m.GetLobby(lobbyID)
+	if err != nil {
+		return err
+	}
+
+	info.mu.Lock()
+	defer info.mu.Unlock()
+
+	// Find player by username
+	var userID int64
+	found := false
+	for uid, player := range info.Players {
+		if player.Username == username {
+			userID = uid
+			found = true
+			break
+		}
+	}
+	
+	if !found {
+		return ErrPlayerNotInLobby
+	}
+
+	info.Players[userID].Ready = ready
+	return m.db.SetPlayerReady(lobbyID, userID, ready)
+}
+
+// IsHostByUsername checks if a username is the host of a lobby
+func (m *Manager) IsHostByUsername(lobbyID string, username string) (bool, error) {
+	info, err := m.GetLobby(lobbyID)
+	if err != nil {
+		return false, err
+	}
+
+	return info.Lobby.HostID == 0 || // For anonymous lobbies, first player is host
+		(len(info.Players) > 0 && func() bool {
+			for _, p := range info.Players {
+				if p.PlayerNum == 1 && p.Username == username {
+					return true
+				}
+			}
+			return false
+		}()), nil
+}

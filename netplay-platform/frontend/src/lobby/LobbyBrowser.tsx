@@ -16,25 +16,14 @@ export default function LobbyBrowser() {
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
-  const [session, setSession] = useState<{ token: string; username: string } | null>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem('netplay_session');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      setSession(parsed);
-    }
-
     fetchLobbies();
   }, []);
 
   const fetchLobbies = async () => {
     try {
-      const res = await fetch('/api/lobbies', {
-        headers: {
-          'Authorization': `Bearer ${session?.token}`,
-        },
-      });
+      const res = await fetch('/api/lobbies');
       if (res.ok) {
         const data = await res.json();
         setLobbies(data);
@@ -56,14 +45,12 @@ export default function LobbyBrowser() {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Browse Lobbies</h1>
           
-          {session && (
-            <Link
-              to="/lobby/create"
-              className="px-6 py-3 bg-primary hover:bg-indigo-500 rounded-lg font-semibold transition"
-            >
-              Create Lobby
-            </Link>
-          )}
+          <Link
+            to="/lobby/create"
+            className="px-6 py-3 bg-primary hover:bg-indigo-500 rounded-lg font-semibold transition"
+          >
+            Create Lobby
+          </Link>
         </div>
 
         {/* Search/Filter */}
@@ -82,12 +69,12 @@ export default function LobbyBrowser() {
           <div className="text-center py-12 text-gray-400">Loading lobbies...</div>
         ) : filteredLobbies.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
-            No lobbies found. {session ? 'Create one!' : 'Login to create a lobby.'}
+            No lobbies found. Create one!
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredLobbies.map((lobby) => (
-              <LobbyCard key={lobby.id} lobby={lobby} isLoggedIn={!!session} />
+              <LobbyCard key={lobby.id} lobby={lobby} />
             ))}
           </div>
         )}
@@ -96,16 +83,13 @@ export default function LobbyBrowser() {
   );
 }
 
-function LobbyCard({ lobby, isLoggedIn }: { lobby: Lobby; isLoggedIn: boolean }) {
+function LobbyCard({ lobby }: { lobby: Lobby }) {
   const handleJoin = async () => {
-    const session = JSON.parse(localStorage.getItem('netplay_session') || '{}');
-    
     try {
       const res = await fetch(`/api/lobbies/${lobby.id}/join`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.token}`,
         },
       });
 
@@ -145,7 +129,7 @@ function LobbyCard({ lobby, isLoggedIn }: { lobby: Lobby; isLoggedIn: boolean })
         </span>
       </div>
 
-      {isOpen && !isFull && isLoggedIn ? (
+      {isOpen && !isFull ? (
         <button
           onClick={handleJoin}
           className="w-full py-2 bg-primary hover:bg-indigo-500 rounded-lg font-semibold transition"
