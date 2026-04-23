@@ -142,15 +142,10 @@ func handleGetLobbies(lobbyManager *lobby.Manager, logger *config.Logger) http.H
 // handleCreateLobby creates a new lobby
 func handleCreateLobby(lobbyManager *lobby.Manager, authService *auth.Service, logger *config.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session := getSession(r)
-		if session == nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
 		var req struct {
 			GameID    string `json:"game_id"`
 			GameTitle string `json:"game_title"`
+			Username  string `json:"username"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -158,17 +153,23 @@ func handleCreateLobby(lobbyManager *lobby.Manager, authService *auth.Service, l
 			return
 		}
 
-		// Generate unique lobby ID
-		lobbyID := time.Now().Format("20060102150405") + "-" + session.Username
+		// Use provided username or generate one
+		username := req.Username
+		if username == "" {
+			username = "Player_" + time.Now().Format("150405")
+		}
 
-		info, err := lobbyManager.CreateLobby(lobbyID, req.GameID, req.GameTitle, session.UserID, session.Username)
+		// Generate unique lobby ID
+		lobbyID := time.Now().Format("20060102150405") + "-" + username
+
+		info, err := lobbyManager.CreateLobby(lobbyID, req.GameID, req.GameTitle, 0, username)
 		if err != nil {
 			logger.Error("Failed to create lobby", "error", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		logger.Info("Lobby created", "lobby_id", lobbyID, "host", session.Username)
+		logger.Info("Lobby created", "lobby_id", lobbyID, "host", username)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"id":           info.Lobby.ID,
 			"game_id":      info.Lobby.GameID,
@@ -220,17 +221,22 @@ func handleGetLobby(lobbyManager *lobby.Manager, logger *config.Logger) http.Han
 // handleJoinLobby allows a user to join a lobby
 func handleJoinLobby(lobbyManager *lobby.Manager, hub *netplay.Hub, logger *config.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session := getSession(r)
-		if session == nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
+		var req struct {
+			Username string `json:"username"`
 		}
+		json.NewDecoder(r.Body).Decode(&req)
 
 		lobbyID := chi.URLParam(r, "lobbyID")
+		
+		// Use provided username or generate one
+		username := req.Username
+		if username == "" {
+			username = "Player_" + time.Now().Format("150405")
+		}
 
-		playerInfo, err := lobbyManager.JoinLobby(lobbyID, session.UserID, session.Username)
+		playerInfo, err := lobbyManager.JoinLobby(lobbyID, 0, username)
 		if err != nil {
-			logger.Error("Failed to join lobby", "error", err, "user", session.Username)
+			logger.Error("Failed to join lobby", "error", err, "user", username)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -238,11 +244,11 @@ func handleJoinLobby(lobbyManager *lobby.Manager, hub *netplay.Hub, logger *conf
 		// Initialize lobby in netplay hub
 		hub.InitializeLobby(lobbyID)
 
-		logger.Info("Player joined lobby", "lobby_id", lobbyID, "user", session.Username, "player_num", playerInfo.PlayerNum)
+		logger.Info("Player joined lobby", "lobby_id", lobbyID, "user", username, "player_num", playerInfo.PlayerNum)
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"lobby_id":   lobbyID,
-			"user_id":    session.UserID,
-			"username":   session.Username,
+			"user_id":    0,
+			"username":   username,
 			"player_num": playerInfo.PlayerNum,
 			"ready":      playerInfo.Ready,
 		})
@@ -252,15 +258,19 @@ func handleJoinLobby(lobbyManager *lobby.Manager, hub *netplay.Hub, logger *conf
 // handleLeaveLobby allows a user to leave a lobby
 func handleLeaveLobby(lobbyManager *lobby.Manager, hub *netplay.Hub, logger *config.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session := getSession(r)
-		if session == nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
+		var req struct {
+			Username string `json:"username"`
 		}
+		json.NewDecoder(r.Body).Decode(&req)
 
 		lobbyID := chi.URLParam(r, "lobbyID")
+		
+		username := req.Username
+		if username == "" {
+			username = "Player_" + time.Now().Format("150405")
+		}
 
-		if err := lobbyManager.LeaveLobby(lobbyID, session.UserID); err != nil {
+		if err := lobbyManager.LeaveLobbyByUsername(lobbyID, username); err != nil {
 			logger.Error("Failed to leave lobby", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -272,7 +282,7 @@ func handleLeaveLobby(lobbyManager *lobby.Manager, hub *netplay.Hub, logger *con
 			hub.CleanupLobby(lobbyID)
 		}
 
-		logger.Info("Player left lobby", "lobby_id", lobbyID, "user", session.Username)
+		logger.Info("Player left lobby", "lobby_id", lobbyID, "user", username)
 		w.WriteHeader(http.StatusOK)
 	}
 }
@@ -280,16 +290,9 @@ func handleLeaveLobby(lobbyManager *lobby.Manager, hub *netplay.Hub, logger *con
 // handleSetReady sets a player's ready status
 func handleSetReady(lobbyManager *lobby.Manager, hub *netplay.Hub, logger *config.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session := getSession(r)
-		if session == nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		lobbyID := chi.URLParam(r, "lobbyID")
-
 		var req struct {
-			Ready bool `json:"ready"`
+			Username string `json:"username"`
+			Ready    bool   `json:"ready"`
 		}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -297,13 +300,20 @@ func handleSetReady(lobbyManager *lobby.Manager, hub *netplay.Hub, logger *confi
 			return
 		}
 
-		if err := lobbyManager.SetPlayerReady(lobbyID, session.UserID, req.Ready); err != nil {
+		lobbyID := chi.URLParam(r, "lobbyID")
+		
+		username := req.Username
+		if username == "" {
+			username = "Player_" + time.Now().Format("150405")
+		}
+
+		if err := lobbyManager.SetPlayerReadyByUsername(lobbyID, username, req.Ready); err != nil {
 			logger.Error("Failed to set ready", "error", err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		logger.Info("Player ready status updated", "lobby_id", lobbyID, "user", session.Username, "ready", req.Ready)
+		logger.Info("Player ready status updated", "lobby_id", lobbyID, "user", username, "ready", req.Ready)
 		w.WriteHeader(http.StatusOK)
 	}
 }
@@ -311,16 +321,20 @@ func handleSetReady(lobbyManager *lobby.Manager, hub *netplay.Hub, logger *confi
 // handleStartLobby starts a game in a lobby (host only)
 func handleStartLobby(lobbyManager *lobby.Manager, hub *netplay.Hub, logger *config.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		session := getSession(r)
-		if session == nil {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
+		var req struct {
+			Username string `json:"username"`
 		}
+		json.NewDecoder(r.Body).Decode(&req)
 
 		lobbyID := chi.URLParam(r, "lobbyID")
+		
+		username := req.Username
+		if username == "" {
+			username = "Player_" + time.Now().Format("150405")
+		}
 
 		// Verify host
-		isHost, err := lobbyManager.IsHost(lobbyID, session.UserID)
+		isHost, err := lobbyManager.IsHostByUsername(lobbyID, username)
 		if err != nil || !isHost {
 			http.Error(w, "Only the host can start the game", http.StatusForbidden)
 			return

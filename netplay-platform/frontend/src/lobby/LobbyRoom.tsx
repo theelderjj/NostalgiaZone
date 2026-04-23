@@ -5,13 +5,10 @@ export default function LobbyRoom() {
   const { lobbyId } = useParams<{ lobbyId: string }>();
   const navigate = useNavigate();
   const [lobby, setLobby] = useState<any>(null);
-  const [session, setSession] = useState<any>(null);
   const [ready, setReady] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem('netplay_session');
-    if (stored) setSession(JSON.parse(stored));
     fetchLobby();
   }, [lobbyId]);
 
@@ -23,7 +20,7 @@ export default function LobbyRoom() {
         setLobby(data);
         
         // Check if current user is in lobby and ready
-        const player = data.players?.find((p: any) => p.user_id === session?.user_id);
+        const player = data.players?.find((p: any) => p.username === localStorage.getItem('player_username'));
         if (player) setReady(player.ready);
       }
     } catch (err) {
@@ -39,7 +36,6 @@ export default function LobbyRoom() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.token}`,
         },
         body: JSON.stringify({ ready: !ready }),
       });
@@ -55,7 +51,7 @@ export default function LobbyRoom() {
       await fetch(`/api/lobbies/${lobbyId}/start`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session?.token}`,
+          'Content-Type': 'application/json',
         },
       });
       navigate(`/game/${lobbyId}`);
@@ -70,7 +66,7 @@ export default function LobbyRoom() {
       await fetch(`/api/lobbies/${lobbyId}/leave`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session?.token}`,
+          'Content-Type': 'application/json',
         },
       });
       navigate('/lobbies');
@@ -82,7 +78,7 @@ export default function LobbyRoom() {
   if (loading) return <div className="min-h-screen bg-darker flex items-center justify-center">Loading...</div>;
   if (!lobby) return <div className="min-h-screen bg-darker flex items-center justify-center">Lobby not found</div>;
 
-  const isHost = session?.user_id === lobby.host_id;
+  const isHost = lobby.players?.some((p: any) => p.username === localStorage.getItem('player_username') && p.is_host);
   const allReady = lobby.players?.every((p: any) => p.ready);
 
   return (

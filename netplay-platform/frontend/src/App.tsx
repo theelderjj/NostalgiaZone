@@ -1,46 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-interface Session {
-  token: string;
-  user_id: number;
-  username: string;
-}
-
 export default function App() {
-  const [session, setSession] = useState<Session | null>(null);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    // Check for existing session on mount
-    const stored = localStorage.getItem('netplay_session');
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        // Verify session is still valid (optional API call)
-        setSession(parsed);
-      } catch {
-        localStorage.removeItem('netplay_session');
-      }
-    }
-  }, []);
-
-  const handleLogout = async () => {
-    try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session?.token}`,
-        },
-      });
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
-    
-    localStorage.removeItem('netplay_session');
-    setSession(null);
-    navigate('/login');
-  };
 
   return (
     <div className="min-h-screen bg-darker">
@@ -58,35 +20,6 @@ export default function App() {
             <Link to="/leaderboard" className="text-gray-300 hover:text-white transition">
               Leaderboard
             </Link>
-            
-            {session ? (
-              <>
-                <span className="text-gray-400">
-                  Welcome, <span className="text-white font-medium">{session.username}</span>
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  to="/login"
-                  className="px-4 py-2 text-gray-300 hover:text-white transition"
-                >
-                  Login
-                </Link>
-                <Link
-                  to="/register"
-                  className="px-4 py-2 bg-primary hover:bg-indigo-500 rounded-lg transition"
-                >
-                  Sign Up
-                </Link>
-              </>
-            )}
           </nav>
         </div>
       </header>
@@ -109,14 +42,6 @@ export default function App() {
             >
               Find a Game
             </Link>
-            {!session && (
-              <Link
-                to="/register"
-                className="px-8 py-4 bg-secondary hover:bg-purple-500 rounded-xl font-semibold text-lg transition"
-              >
-                Create Account
-              </Link>
-            )}
           </div>
         </div>
 
